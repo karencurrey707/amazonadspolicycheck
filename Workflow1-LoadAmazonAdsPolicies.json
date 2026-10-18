@@ -1,0 +1,922 @@
+{
+  "name": "Workflow 1 - Load Amazon Ads Policies",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c1ec6309-a1ec-4612-97e0-4a77e81deb7f",
+      "name": "Start Loading",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "drive_folder_id",
+              "value": "1aFvz5DBugHBQL10xcSmw19WNUMeyu3KD",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "docs_to_process",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "s3",
+              "name": "splitter_type",
+              "value": "semantic",
+              "type": "string"
+            },
+            {
+              "id": "s4",
+              "name": "chunk_size",
+              "value": 1000,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "chunk_overlap",
+              "value": 200,
+              "type": "number"
+            },
+            {
+              "id": "s6",
+              "name": "embedding_model",
+              "value": "Qwen/Qwen3-Embedding-8B",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "embedding_dimensions",
+              "value": 1024,
+              "type": "number"
+            },
+            {
+              "id": "s8",
+              "name": "semantic_threshold",
+              "value": 0.5,
+              "type": "number"
+            },
+            {
+              "id": "s9",
+              "name": "nebius_base_url",
+              "value": "https://api.studio.nebius.com/v1",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "687498d9-9d3d-4c1c-90b1-094e4a227a96",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        272,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://drive.google.com/embeddedfolderview?id={{ $json.drive_folder_id }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "html"
+            }
+          }
+        }
+      },
+      "id": "379f35c9-1fed-4daf-89fe-4b44a711e40c",
+      "name": "Open Public Folder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.html || '';\nconst decode = (s) => s.replace(/&amp;/g, '&').replace(/&#39;/g, \"'\").replace(/&quot;/g, '\"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();\nconst re = /docs\\.google\\.com\\/document\\/d\\/([\\w-]+)[\\s\\S]*?flip-entry-title\">([^<]+)</g;\nconst seen = new Set();\nconst out = [];\nlet m;\nwhile ((m = re.exec(html)) !== null) {\n  if (seen.has(m[1])) continue;\n  seen.add(m[1]);\n  out.push({ json: { id: m[1], name: decode(m[2]) } });\n}\nif (out.length === 0) {\n  throw new Error('No Google Docs found. Check the folder ID and that the folder is shared as \"Anyone with the link\".');\n}\nreturn out;"
+      },
+      "id": "54cc284c-c005-422a-bc5e-ea6d3f08ed3f",
+      "name": "Find Policy Docs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Settings').first().json.docs_to_process }}"
+      },
+      "id": "22692f4e-c135-4c3a-b56a-4f51d55d0653",
+      "name": "Limit Docs For Testing",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        720,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://docs.google.com/document/d/{{ $json.id }}/export?format=txt",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "content"
+            }
+          }
+        }
+      },
+      "id": "fe342d59-b567-495e-9d2d-6e32efdeb1ad",
+      "name": "Read Doc Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        944,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "category",
+              "value": "={{ $('Limit Docs For Testing').item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "p2",
+              "name": "source_url",
+              "value": "={{ 'https://advertising.amazon.com/help/' + ({ prohibited: 'GZS8A5XCFQJTS88N', alcohol: 'G2MMCHZDCTW37V39', animal: 'GPHDMTD25DRYVRM7', dating: 'G8S3JBS2CQQ5BXS5', charities: 'GPRBZ3P2JA2UCU2U', claims: 'G6UU66YLSCUYDULQ', employment: 'GH44NYF29M6QCYSE', entertainment: 'G7NP3SWRVV6UV66V', financial: 'GSMUMHF989KULMEQ', gambling: 'GYN86Z5STCSCPDLJ', real: 'GYZ3NZ7PXJCZXSPT', healthcare: 'GPSSMTEAA6AEWY3A', baby: 'GFNDKT3FYGDL54VB', pricing: 'GKP5TCJWVN5W7AFU', public: 'GEZ4XHT8TRXFB5WH', news: 'G8LCCRSMMYE6255Z', sports: 'GD8U427Z7HJHHJGP', event: 'GQ3SJ5QCWCQCKCYQ' })[$('Limit Docs For Testing').item.json.name.toLowerCase().split(' ')[0]] }}",
+              "type": "string"
+            },
+            {
+              "id": "p3",
+              "name": "text",
+              "value": "={{ $json.content.replace(/^\\uFEFF/, '').replace(/\\r\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ca00e121-c3ee-4271-9da3-0614c7cdc2b6",
+      "name": "Prepare Text And Labels",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1168,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Settings').first().json.splitter_type }}",
+                    "rightValue": "recursive",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "recursive"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Settings').first().json.splitter_type }}",
+                    "rightValue": "token",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "token"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Settings').first().json.splitter_type }}",
+                    "rightValue": "semantic",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "semantic"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "72c6fd2b-4905-4a9d-82cd-6cd8da1680f1",
+      "name": "Which Splitter?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "mode": "id",
+          "value": "amazon-ads-policies"
+        },
+        "options": {
+          "pineconeNamespace": "={{ 'recursive-' + $('Settings').first().json.chunk_size + '-' + $('Settings').first().json.chunk_overlap }}"
+        }
+      },
+      "id": "e0128750-b021-4708-9b22-1e5bf853c44c",
+      "name": "Store Chunks (Recursive)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        0
+      ],
+      "credentials": {
+        "pineconeApi": {
+          "id": "UE74ArZNfTHquaff",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Settings').first().json.embedding_model }}",
+        "options": {
+          "dimensions": "={{ $('Settings').first().json.embedding_dimensions }}"
+        }
+      },
+      "id": "767a18ae-954a-48e9-98e0-3f50c6b9f5b7",
+      "name": "Nebius Embeddings (Recursive)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        992,
+        224
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "2w0bNQBKQxCS9s3u",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "category",
+                "value": "={{ $json.category }}"
+              },
+              {
+                "name": "source_url",
+                "value": "={{ $json.source_url }}"
+              },
+              {
+                "name": "splitter",
+                "value": "={{ $('Settings').first().json.splitter_type }}"
+              },
+              {
+                "name": "chunk_size",
+                "value": "={{ $('Settings').first().json.chunk_size }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "67a650a8-e808-46b1-870d-f9f7f7a525a2",
+      "name": "Load Text (Recursive)",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": "={{ $('Settings').first().json.chunk_size }}",
+        "chunkOverlap": "={{ $('Settings').first().json.chunk_overlap }}",
+        "options": {}
+      },
+      "id": "39310462-d31a-447a-9ce7-741234bec39a",
+      "name": "Recursive Character Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "mode": "list",
+          "value": "amazon-ads-policies",
+          "cachedResultName": "amazon-ads-policies"
+        },
+        "options": {
+          "pineconeNamespace": "={{ 'token-' + $('Settings').first().json.chunk_size + '-' + $('Settings').first().json.chunk_overlap }}"
+        }
+      },
+      "id": "8b917a0b-6914-43ce-9e27-e5430e92195f",
+      "name": "Store Chunks (Token)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        608
+      ],
+      "credentials": {
+        "pineconeApi": {
+          "id": "UE74ArZNfTHquaff",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Settings').first().json.embedding_model }}",
+        "options": {
+          "dimensions": "={{ $('Settings').first().json.embedding_dimensions }}"
+        }
+      },
+      "id": "f474cf10-42a0-4143-aba9-a0a1a2bcf316",
+      "name": "Nebius Embeddings (Token)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        992,
+        832
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "2w0bNQBKQxCS9s3u",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "category",
+                "value": "={{ $json.category }}"
+              },
+              {
+                "name": "source_url",
+                "value": "={{ $json.source_url }}"
+              },
+              {
+                "name": "splitter",
+                "value": "={{ $('Settings').first().json.splitter_type }}"
+              },
+              {
+                "name": "chunk_size",
+                "value": "={{ $('Settings').first().json.chunk_size }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f1e30dc9-c26e-439f-901b-8d71ec210e9e",
+      "name": "Load Text (Token)",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": "={{ $('Settings').first().json.chunk_size }}",
+        "chunkOverlap": "={{ $('Settings').first().json.chunk_overlap }}"
+      },
+      "id": "2adc4f87-b9c4-44ea-b5de-d4ce21a3292f",
+      "name": "Token Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Breaks each policy doc into single sentences (each bullet line counts as one).\nconst out = [];\nfor (const item of $input.all()) {\n  const text = item.json.text || '';\n  const sentences = [];\n  for (const rawLine of text.split('\\n')) {\n    const line = rawLine.replace(/^\\s*[*\\-\\u2022]\\s*/, '').trim();\n    if (!line) continue;\n    const parts = line.split(/(?<=[.!?])\\s+(?=[A-Z0-9\"(\\u201C])/);\n    for (const p of parts) {\n      const s = p.trim();\n      if (s) sentences.push(s);\n    }\n  }\n  out.push({ json: { category: item.json.category, source_url: item.json.source_url, sentence_count: sentences.length, sentences } });\n}\nreturn out;"
+      },
+      "id": "6f9cf6ab-406c-44e0-9221-c699a3a3d919",
+      "name": "Split Into Sentences",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.nebius_base_url }}/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.embedding_model, input: $json.sentences, dimensions: $('Settings').first().json.embedding_dimensions }) }}",
+        "options": {}
+      },
+      "id": "bc40e9a6-0af5-4324-83d4-496a6f04085f",
+      "name": "Embed Each Sentence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1504,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "2w0bNQBKQxCS9s3u",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Walks through the sentences in order. Starts a new chunk when the next sentence\n// is not similar enough to the previous one (topic change), or the chunk would get too long.\nconst settings = $('Settings').first().json;\nconst threshold = Number(settings.semantic_threshold);\nconst maxChars = Number(settings.chunk_size);\nconst docs = $('Split Into Sentences').all();\nconst cosine = (a, b) => {\n  let dot = 0, na = 0, nb = 0;\n  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }\n  const denom = Math.sqrt(na) * Math.sqrt(nb);\n  return denom ? dot / denom : 0;\n};\nconst out = [];\n$input.all().forEach((resp, i) => {\n  const doc = docs[i].json;\n  const vectors = (resp.json.data || []).slice().sort((a, b) => a.index - b.index).map((d) => d.embedding);\n  const sentences = doc.sentences.slice(0, vectors.length);\n  if (sentences.length === 0) return;\n  let current = [sentences[0]];\n  let length = sentences[0].length;\n  let scores = [];\n  const pushChunk = (reason) => {\n    out.push({ json: { category: doc.category, source_url: doc.source_url, text: current.join('\\n'), sentence_count: current.length, similarities_inside: scores, ended_because: reason } });\n  };\n  for (let k = 1; k < sentences.length; k++) {\n    const sim = Number(cosine(vectors[k - 1], vectors[k]).toFixed(3));\n    const tooLong = length + 1 + sentences[k].length > maxChars;\n    if (sim < threshold || tooLong) {\n      pushChunk(sim < threshold ? 'topic change (similarity ' + sim + ')' : 'size limit');\n      current = [sentences[k]];\n      length = sentences[k].length;\n      scores = [];\n    } else {\n      current.push(sentences[k]);\n      length += 1 + sentences[k].length;\n      scores.push(sim);\n    }\n  }\n  pushChunk('end of document');\n});\nreturn out;"
+      },
+      "id": "4d29c7e6-d0d8-447f-9319-9996e3610c48",
+      "name": "Group By Meaning",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "mode": "list",
+          "value": "amazon-ads-policies",
+          "cachedResultName": "amazon-ads-policies"
+        },
+        "options": {
+          "pineconeNamespace": "={{ 'semantic-' + $('Settings').first().json.semantic_threshold + '-' + $('Settings').first().json.chunk_size }}"
+        }
+      },
+      "id": "3555faf3-c3a5-4ada-99eb-360ccace8f5b",
+      "name": "Store Chunks (Semantic)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1808,
+        192
+      ],
+      "credentials": {
+        "pineconeApi": {
+          "id": "UE74ArZNfTHquaff",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Settings').first().json.embedding_model }}",
+        "options": {
+          "dimensions": "={{ $('Settings').first().json.embedding_dimensions }}"
+        }
+      },
+      "id": "47148dae-4fa3-4828-8a15-d057bda26b09",
+      "name": "Nebius Embeddings (Semantic)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1824,
+        384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "2w0bNQBKQxCS9s3u",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "category",
+                "value": "={{ $json.category }}"
+              },
+              {
+                "name": "source_url",
+                "value": "={{ $json.source_url }}"
+              },
+              {
+                "name": "splitter",
+                "value": "semantic"
+              },
+              {
+                "name": "chunk_size",
+                "value": "={{ $('Settings').first().json.chunk_size }}"
+              },
+              {
+                "name": "semantic_threshold",
+                "value": "={{ $('Settings').first().json.semantic_threshold }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "eac607c8-72b6-4f84-8ecf-efe507490c1a",
+      "name": "Load Text (Semantic)",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1952,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 100000,
+        "options": {}
+      },
+      "id": "ce918958-3b3b-474a-a077-65a5d30ce1b3",
+      "name": "Keep Chunks Whole",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        432
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Loading": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Open Public Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open Public Folder": {
+      "main": [
+        [
+          {
+            "node": "Find Policy Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Policy Docs": {
+      "main": [
+        [
+          {
+            "node": "Limit Docs For Testing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Docs For Testing": {
+      "main": [
+        [
+          {
+            "node": "Read Doc Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Doc Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Text And Labels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Text And Labels": {
+      "main": [
+        [
+          {
+            "node": "Which Splitter?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Splitter?": {
+      "main": [
+        [
+          {
+            "node": "Store Chunks (Recursive)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Chunks (Token)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Into Sentences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nebius Embeddings (Recursive)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store Chunks (Recursive)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Text (Recursive)": {
+      "ai_document": [
+        [
+          {
+            "node": "Store Chunks (Recursive)",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Load Text (Recursive)",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nebius Embeddings (Token)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store Chunks (Token)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Text (Token)": {
+      "ai_document": [
+        [
+          {
+            "node": "Store Chunks (Token)",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Load Text (Token)",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Sentences": {
+      "main": [
+        [
+          {
+            "node": "Embed Each Sentence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Each Sentence": {
+      "main": [
+        [
+          {
+            "node": "Group By Meaning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group By Meaning": {
+      "main": [
+        [
+          {
+            "node": "Store Chunks (Semantic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nebius Embeddings (Semantic)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store Chunks (Semantic)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Text (Semantic)": {
+      "ai_document": [
+        [
+          {
+            "node": "Store Chunks (Semantic)",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Chunks Whole": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Load Text (Semantic)",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d66dcfe2-3b1b-440c-978c-f97a0ab0db4d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "676f2576504515f9a0d4840e3d6be375f5edaf94ce54f88eb2008825d022e76c"
+  },
+  "nodeGroups": [
+    {
+      "id": "9f6ae542-f991-4416-95ed-7fc5440d2065",
+      "name": "Gather policy text",
+      "nodeIds": [
+        "687498d9-9d3d-4c1c-90b1-094e4a227a96",
+        "379f35c9-1fed-4daf-89fe-4b44a711e40c",
+        "54cc284c-c005-422a-bc5e-ea6d3f08ed3f",
+        "22692f4e-c135-4c3a-b56a-4f51d55d0653",
+        "fe342d59-b567-495e-9d2d-6e32efdeb1ad",
+        "ca00e121-c3ee-4271-9da3-0614c7cdc2b6"
+      ],
+      "description": "Reads your settings, then pulls each policy doc from the public Drive folder and splits off its source link and category"
+    },
+    {
+      "id": "69bea155-570f-4c46-8217-260aac7af2f5",
+      "name": "Chunk, embed and store",
+      "nodeIds": [
+        "72c6fd2b-4905-4a9d-82cd-6cd8da1680f1",
+        "e0128750-b021-4708-9b22-1e5bf853c44c",
+        "8b917a0b-6914-43ce-9e27-e5430e92195f",
+        "767a18ae-954a-48e9-98e0-3f50c6b9f5b7",
+        "f474cf10-42a0-4143-aba9-a0a1a2bcf316",
+        "67a650a8-e808-46b1-870d-f9f7f7a525a2",
+        "f1e30dc9-c26e-439f-901b-8d71ec210e9e",
+        "39310462-d31a-447a-9ce7-741234bec39a",
+        "2adc4f87-b9c4-44ea-b5de-d4ce21a3292f",
+        "6f9cf6ab-406c-44e0-9221-c699a3a3d919",
+        "bc40e9a6-0af5-4324-83d4-496a6f04085f",
+        "4d29c7e6-d0d8-447f-9319-9996e3610c48",
+        "3555faf3-c3a5-4ada-99eb-360ccace8f5b",
+        "47148dae-4fa3-4828-8a15-d057bda26b09",
+        "eac607c8-72b6-4f84-8ecf-efe507490c1a",
+        "ce918958-3b3b-474a-a077-65a5d30ce1b3"
+      ],
+      "description": "Cuts text by size, tokens, or topic shifts, turns chunks into Nebius vectors, and saves them in Pinecone"
+    }
+  ],
+  "id": "hg7izEmLCGD5Dorq",
+  "tags": []
+}
